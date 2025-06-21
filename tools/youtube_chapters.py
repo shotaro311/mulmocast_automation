@@ -32,26 +32,36 @@ def generate_youtube_chapters(studio_file):
     chapters = []
     current_time = 0.0
     
-    # studio.jsonからbeats情報を取得
-    if 'script' in data and 'beats' in data['script']:
-        beats = data['script']['beats']
-    elif 'beats' in data:
-        beats = data['beats']
+    # studio.jsonから実際のbeat時間データを取得
+    # 実際のbeat時間情報は'beats'キーに格納されている
+    if 'beats' in data:
+        beats_data = data['beats']
+        # script情報も取得
+        if 'script' in data and 'beats' in data['script']:
+            script_beats = data['script']['beats']
+        else:
+            print("❌ script beats情報が見つかりません")
+            return None
     else:
-        print("❌ beats情報が見つかりません")
+        print("❌ beats時間情報が見つかりません")
         return None
     
-    for i, beat in enumerate(beats):
-        # 各beatの継続時間を取得（デフォルト17秒）
-        duration = beat.get('duration', 17.0)
+    # beat数の一致確認
+    if len(beats_data) != len(script_beats):
+        print(f"⚠️  警告: beat数が一致しません (時間データ: {len(beats_data)}, テキストデータ: {len(script_beats)})")
+        return None
+    
+    for i, (beat_time, beat_text) in enumerate(zip(beats_data, script_beats)):
+        # 実際の音声時間を取得（デフォルト17秒）
+        duration = beat_time.get('duration', 17.0)
         
         # チャプター名を決定
-        text = beat.get('text', '')
+        text = beat_text.get('text', '')
         
         if i == 0:
             # オープニング
             chapter_name = "🎬 オープニング・挨拶"
-        elif i == len(beats) - 1:
+        elif i == len(script_beats) - 1:
             # クロージング
             chapter_name = "👍 チャンネル登録のお願い"
         else:
@@ -62,10 +72,17 @@ def generate_youtube_chapters(studio_file):
         timestamp = seconds_to_timestamp(current_time)
         chapters.append(f"{timestamp} {chapter_name}")
         
+        # 実際の音声時間を加算
         current_time += duration
     
     # 総動画時間
     total_duration = current_time
+    
+    # デバッグ情報を出力
+    print(f"🕐 チャプター時間計算:")
+    for i, (beat_time, chapter) in enumerate(zip(beats_data, chapters)):
+        duration = beat_time.get('duration', 17.0)
+        print(f"  Beat {i+1}: {duration:.2f}秒 - {chapter}")
     
     return chapters, total_duration
 
