@@ -31,12 +31,12 @@ fi
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 
 # 出力ディレクトリを準備
-OUTPUT_MOVIE_DIR="output/movie"
-mkdir -p "$OUTPUT_MOVIE_DIR"
-
+OUTPUT_BASE_DIR="output/movie"
 # 日付ベースのファイル名を生成
 DATE_STR=$(date +%Y%m%d)
 BASE_NAME="news_${DATE_STR}"
+OUTPUT_MOVIE_DIR="$OUTPUT_BASE_DIR/$BASE_NAME"
+mkdir -p "$OUTPUT_MOVIE_DIR"
 
 print_status "Quick News Video Generator v2.4 (Organized Output)"
 echo "============================================="

@@ -31,6 +31,7 @@ def generate_youtube_chapters(studio_file):
     
     chapters = []
     current_time = 0.0
+    used_chapter_names = set()  # 重複チェック用
     
     # studio.jsonから実際のbeat時間データを取得
     # 実際のbeat時間情報は'beats'キーに格納されている
@@ -55,18 +56,22 @@ def generate_youtube_chapters(studio_file):
         # 実際の音声時間を取得（デフォルト17秒）
         duration = beat_time.get('duration', 17.0)
         
+        # OP（最初）・ED（最後）のチャプターをスキップ
+        if i == 0 or i == len(script_beats) - 1:
+            current_time += duration
+            continue
+        
         # チャプター名を決定
         text = beat_text.get('text', '')
+        chapter_name = generate_smart_chapter_name(text, i)
         
-        if i == 0:
-            # オープニング
-            chapter_name = "🎬 オープニング・挨拶"
-        elif i == len(script_beats) - 1:
-            # クロージング
-            chapter_name = "👍 チャンネル登録のお願い"
-        else:
-            # 本文のチャプター名を実際の内容から自動生成
-            chapter_name = generate_smart_chapter_name(text, i)
+        # 重複チャプター名をチェック・統合
+        if chapter_name in used_chapter_names:
+            # 重複の場合は時間を加算してスキップ（統合）
+            current_time += duration
+            continue
+        
+        used_chapter_names.add(chapter_name)
         
         # タイムスタンプとチャプター追加
         timestamp = seconds_to_timestamp(current_time)
@@ -75,14 +80,35 @@ def generate_youtube_chapters(studio_file):
         # 実際の音声時間を加算
         current_time += duration
     
-    # 総動画時間
-    total_duration = current_time
+    # 総動画時間（全beatの時間を含む）
+    total_duration = sum(beat.get('duration', 17.0) for beat in beats_data)
     
     # デバッグ情報を出力
     print(f"🕐 チャプター時間計算:")
-    for i, (beat_time, chapter) in enumerate(zip(beats_data, chapters)):
+    current_debug_time = 0.0
+    chapter_index = 0
+    
+    for i, (beat_time, beat_text) in enumerate(zip(beats_data, script_beats)):
         duration = beat_time.get('duration', 17.0)
-        print(f"  Beat {i+1}: {duration:.2f}秒 - {chapter}")
+        
+        if i == 0:
+            print(f"  Beat {i+1}: {duration:.2f}秒 - [OP] スキップ")
+        elif i == len(script_beats) - 1:
+            print(f"  Beat {i+1}: {duration:.2f}秒 - [ED] スキップ")
+        else:
+            text = beat_text.get('text', '')
+            chapter_name = generate_smart_chapter_name(text, i)
+            
+            if chapter_name not in [ch.split(' ', 1)[1] for ch in chapters[:chapter_index]]:
+                if chapter_index < len(chapters):
+                    print(f"  Beat {i+1}: {duration:.2f}秒 - {chapters[chapter_index]}")
+                    chapter_index += 1
+                else:
+                    print(f"  Beat {i+1}: {duration:.2f}秒 - {seconds_to_timestamp(current_debug_time)} {chapter_name}")
+            else:
+                print(f"  Beat {i+1}: {duration:.2f}秒 - [重複] {chapter_name} 統合")
+        
+        current_debug_time += duration
     
     return chapters, total_duration
 

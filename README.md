@@ -31,11 +31,12 @@ mulmocast/
 │   └── fixed_images_config.json # 固定画像設定
 ├── output/                      # 生成結果
 │   └── movie/                  # 整理された出力ファイル
-│       ├── news_YYYYMMDD.mp4              # 動画ファイル
-│       ├── news_YYYYMMDD_studio.json      # mulmocast内部ファイル
-│       ├── news_YYYYMMDD_youtube_chapters.txt    # チャプター一覧
-│       ├── news_YYYYMMDD_youtube_description.txt # YouTube説明文
-│       └── news_YYYYMMDD.mp3              # 音声ファイル
+│       └── news_YYYYMMDD/      # 日付別フォルダ
+│           ├── news_YYYYMMDD.mp4              # 動画ファイル
+│           ├── news_YYYYMMDD_studio.json      # mulmocast内部ファイル
+│           ├── news_YYYYMMDD_youtube_chapters.txt    # チャプター一覧
+│           ├── news_YYYYMMDD_youtube_description.txt # YouTube説明文
+│           └── news_YYYYMMDD.mp3              # 音声ファイル
 │   └── images/                 # 生成画像（共有）
 └── docs/                       # ドキュメント
     └── mulmo_manual.md         # mulmocastマニュアル
@@ -58,6 +59,8 @@ mulmocast/
 - 実際の内容に基づいた具体的なチャプター名
 - 正確なタイムスタンプ付き
 - コピペ用YouTube説明文テンプレート
+- OP/EDチャプター除外で本編のみ
+- 重複チャプター名の自動統合
 
 ### 📁 **整理された出力管理**
 - 日付ベースファイル命名（`news_YYYYMMDD`）
@@ -68,23 +71,17 @@ mulmocast/
 
 ### 出力ファイル構成
 ```
-output/movie/news_20250621.mp4              # 動画ファイル
-output/movie/news_20250621_youtube_chapters.txt     # チャプター一覧
-output/movie/news_20250621_youtube_description.txt  # YouTube説明文
+output/movie/news_20250621/news_20250621.mp4              # 動画ファイル
+output/movie/news_20250621/news_20250621_youtube_chapters.txt     # チャプター一覧
+output/movie/news_20250621/news_20250621_youtube_description.txt  # YouTube説明文
 ```
 
-### 動画チャプター
+### 動画チャプター（OP/ED除外）
 ```
-0:00 🎬 オープニング・挨拶
-0:17 💼 新NISA利用状況（88％が活用）
-0:34 📊 新NISA積立額の増加トレンド
-0:51 ⚡ 非課税枠完全活用の戦略
-1:08 💹 日銀議事要旨（段階的利上げ方針）
-1:25 🏠 住宅ローン対策（固定化検討）
-1:42 💱 為替動向（円高進行の影響）
-1:59 🤖 Microsoft AI戦略（営業利益率最高）
-2:16 🍎 Apple関税対策（インド生産転換）
-2:33 👍 チャンネル登録のお願い
+0:17 💹 日銀政策・金利動向
+0:22 🏠 住宅ローン対策（固定化検討）
+0:26 💼 新NISA制度の活用状況
+0:37 📈 株式市場の動向
 ```
 
 ## 🛠️ 技術仕様
@@ -116,7 +113,7 @@ output/movie/news_20250621_youtube_description.txt  # YouTube説明文
 python3 tools/setup_fixed_images.py check
 
 # 生成ファイルの確認
-ls -la output/movie/
+ls -la output/movie/news_$(date +%Y%m%d)/
 ```
 
 ---
