@@ -30,9 +30,13 @@ mulmocast/
 ├── config/                      # 設定ファイル
 │   └── fixed_images_config.json # 固定画像設定
 ├── output/                      # 生成結果
-│   ├── *.mp4                   # 動画ファイル
-│   ├── *_studio.json           # mulmocast内部ファイル
-│   └── images/                 # 生成画像
+│   └── movie/                  # 整理された出力ファイル
+│       ├── news_YYYYMMDD.mp4              # 動画ファイル
+│       ├── news_YYYYMMDD_studio.json      # mulmocast内部ファイル
+│       ├── news_YYYYMMDD_youtube_chapters.txt    # チャプター一覧
+│       ├── news_YYYYMMDD_youtube_description.txt # YouTube説明文
+│       └── news_YYYYMMDD.mp3              # 音声ファイル
+│   └── images/                 # 生成画像（共有）
 └── docs/                       # ドキュメント
     └── mulmo_manual.md         # mulmocastマニュアル
 ```
@@ -55,7 +59,19 @@ mulmocast/
 - 正確なタイムスタンプ付き
 - コピペ用YouTube説明文テンプレート
 
+### 📁 **整理された出力管理**
+- 日付ベースファイル命名（`news_YYYYMMDD`）
+- `output/movie/`ディレクトリに集約
+- 動画・音声・チャプター・説明文を一括管理
+
 ## 📊 生成例
+
+### 出力ファイル構成
+```
+output/movie/news_20250621.mp4              # 動画ファイル
+output/movie/news_20250621_youtube_chapters.txt     # チャプター一覧
+output/movie/news_20250621_youtube_description.txt  # YouTube説明文
+```
 
 ### 動画チャプター
 ```
@@ -85,6 +101,7 @@ mulmocast/
 - **Token節約**: 固定画像2枚再利用
 - **品質向上**: beats数自動調整で安定品質
 - **YouTube対応**: 目次自動生成でUX向上
+- **ファイル管理**: 日付ベース命名で整理
 
 ## 🔧 トラブルシューティング
 
@@ -99,7 +116,7 @@ mulmocast/
 python3 tools/setup_fixed_images.py check
 
 # 生成ファイルの確認
-ls -la output/
+ls -la output/movie/
 ```
 
 ---

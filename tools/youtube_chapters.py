@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """
 mulmocast動画からYouTube用目次（チャプター）を自動生成するツール（改善版）
-使用方法: python youtube_chapters_improved.py studio_file.json
+使用方法: python youtube_chapters.py studio_file.json [output_dir] [base_name]
 """
 
 import json
@@ -178,21 +178,32 @@ def create_youtube_description(chapters, video_title, total_duration):
 
 def main():
     if len(sys.argv) < 2:
-        print("使用方法: python youtube_chapters_improved.py studio_file.json")
+        print("使用方法: python youtube_chapters.py studio_file.json [output_dir] [base_name]")
         sys.exit(1)
     
     studio_file = sys.argv[1]
     
+    # 出力ディレクトリとベース名を引数から取得
+    if len(sys.argv) >= 3:
+        output_dir = sys.argv[2]
+    else:
+        output_dir = "output/movie"
+    
+    if len(sys.argv) >= 4:
+        base_name = sys.argv[3]
+    else:
+        # studio.jsonファイル名からベース名を推測
+        base_name = os.path.splitext(os.path.basename(studio_file))[0].replace('_studio', '')
+    
     # studio.jsonファイルが見つからない場合、最新のものを自動検索
     if not os.path.exists(studio_file):
         # output/ディレクトリから最新のstudio.jsonを検索
-        output_dir = "output"
-        if os.path.exists(output_dir):
-            studio_files = [f for f in os.listdir(output_dir) if f.endswith('_studio.json')]
+        if os.path.exists("output"):
+            studio_files = [f for f in os.listdir("output") if f.endswith('_studio.json')]
             if studio_files:
                 # 最新のファイルを選択
                 studio_files.sort(reverse=True)
-                studio_file = os.path.join(output_dir, studio_files[0])
+                studio_file = os.path.join("output", studio_files[0])
                 print(f"📁 最新のstudio.jsonを使用: {studio_file}")
             else:
                 print("❌ studio.jsonファイルが見つかりません")
@@ -201,8 +212,13 @@ def main():
             print("❌ outputディレクトリが見つかりません")
             sys.exit(1)
     
+    # 出力ディレクトリを作成
+    os.makedirs(output_dir, exist_ok=True)
+    
     print(f"🎬 YouTube目次生成中...")
     print(f"📁 入力ファイル: {studio_file}")
+    print(f"📁 出力ディレクトリ: {output_dir}")
+    print(f"📄 ベースファイル名: {base_name}")
     
     result = generate_youtube_chapters(studio_file)
     if result is None:
@@ -221,10 +237,9 @@ def main():
     except:
         video_title = '投資・経済ニュース - 朝の重要ポイント'
     
-    # 出力ファイル名を生成
-    base_name = os.path.splitext(os.path.basename(studio_file))[0].replace('_studio', '')
-    chapters_file = f"{base_name}_youtube_chapters.txt"
-    description_file = f"{base_name}_youtube_description.txt"
+    # 出力ファイル名を生成（新しい命名規則）
+    chapters_file = os.path.join(output_dir, f"{base_name}_youtube_chapters.txt")
+    description_file = os.path.join(output_dir, f"{base_name}_youtube_description.txt")
     
     # チャプター一覧を出力
     with open(chapters_file, 'w', encoding='utf-8') as f:

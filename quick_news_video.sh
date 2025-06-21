@@ -30,8 +30,18 @@ fi
 # スクリプトの場所を取得
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 
-print_status "Quick News Video Generator v2.3 (Organized)"
+# 出力ディレクトリを準備
+OUTPUT_MOVIE_DIR="output/movie"
+mkdir -p "$OUTPUT_MOVIE_DIR"
+
+# 日付ベースのファイル名を生成
+DATE_STR=$(date +%Y%m%d)
+BASE_NAME="news_${DATE_STR}"
+
+print_status "Quick News Video Generator v2.4 (Organized Output)"
 echo "============================================="
+print_info "📁 出力先: $OUTPUT_MOVIE_DIR"
+print_info "📄 ベースファイル名: $BASE_NAME"
 
 # 固定画像設定をチェック
 print_info "固定画像設定をチェック中..."
@@ -87,10 +97,14 @@ if [ -z "$latest_json" ]; then
     exit 1
 fi
 
+# JSONファイルを新しい命名規則でリネーム
+renamed_json="${BASE_NAME}.json"
+cp "$latest_json" "$renamed_json"
+
 print_info "JSON構文をチェック中..."
 
 # JSON構文チェック
-if ! python3 -m json.tool "$latest_json" > /dev/null 2>&1; then
+if ! python3 -m json.tool "$renamed_json" > /dev/null 2>&1; then
     print_error "JSON構文エラーが検出されました"
     exit 1
 fi
@@ -100,7 +114,7 @@ print_success "JSON構文OK"
 # beats数をカウント
 beats_count=$(python3 -c "
 import json
-with open('$latest_json', 'r', encoding='utf-8') as f:
+with open('$renamed_json', 'r', encoding='utf-8') as f:
     data = json.load(f)
     print(len(data.get('beats', [])))
 ")
@@ -123,7 +137,7 @@ print_status "動画生成を開始..."
 start_time=$(date "+⏰ 開始時刻: #%p")
 echo "$start_time"
 
-mulmo movie "$latest_json" -l ja -c ja
+mulmo movie "$renamed_json" -l ja -c ja
 
 if [ $? -eq 0 ]; then
     end_time=$(date "+⏰ 完了時刻: #%p")
@@ -131,10 +145,35 @@ if [ $? -eq 0 ]; then
     echo "$end_time"
     echo ""
     
+    # 生成されたファイルをoutput/movie/に移動
+    print_info "ファイルを整理中..."
+    
+    # 動画ファイルを移動
+    if [ -f "output/${BASE_NAME}_ja__ja.mp4" ]; then
+        mv "output/${BASE_NAME}_ja__ja.mp4" "$OUTPUT_MOVIE_DIR/${BASE_NAME}.mp4"
+        print_success "動画ファイル移動完了: $OUTPUT_MOVIE_DIR/${BASE_NAME}.mp4"
+    else
+        print_warning "動画ファイルが見つかりません"
+    fi
+    
+    # 音声ファイルを移動
+    if [ -f "output/${BASE_NAME}.mp3" ]; then
+        mv "output/${BASE_NAME}.mp3" "$OUTPUT_MOVIE_DIR/${BASE_NAME}.mp3"
+    fi
+    
+    # studio.jsonファイルを移動
+    studio_json="output/${BASE_NAME}_studio.json"
+    if [ -f "$studio_json" ]; then
+        mv "$studio_json" "$OUTPUT_MOVIE_DIR/${BASE_NAME}_studio.json"
+    fi
+    
+    # 元のJSONファイルをクリーンアップ
+    rm -f "$latest_json" "$renamed_json"
+    
     print_info "生成されたファイル:"
-    ls -lh output/*.mp4 2>/dev/null | tail -1
-    ls -lh output/*_studio.json 2>/dev/null | tail -1  
-    ls -lh output/*.mp3 2>/dev/null | tail -1
+    ls -lh "$OUTPUT_MOVIE_DIR/${BASE_NAME}.mp4" 2>/dev/null
+    ls -lh "$OUTPUT_MOVIE_DIR/${BASE_NAME}_studio.json" 2>/dev/null
+    ls -lh "$OUTPUT_MOVIE_DIR/${BASE_NAME}.mp3" 2>/dev/null
     
     echo ""
     print_info "生成統計:"
@@ -160,18 +199,17 @@ if [ $? -eq 0 ]; then
     
     # YouTube目次生成
     print_status "YouTube目次を生成中..."
-    latest_studio=$(ls -t output/*_studio.json 2>/dev/null | head -n 1)
+    latest_studio="$OUTPUT_MOVIE_DIR/${BASE_NAME}_studio.json"
     
-    if [ -n "$latest_studio" ]; then
-        python3 tools/youtube_chapters.py "$latest_studio"
+    if [ -f "$latest_studio" ]; then
+        python3 tools/youtube_chapters.py "$latest_studio" "$OUTPUT_MOVIE_DIR" "$BASE_NAME"
         
         if [ $? -eq 0 ]; then
             print_success "YouTube目次生成完了！"
             
             # 生成されたチャプターファイルを表示
-            base_name=$(basename "$latest_studio" _studio.json)
-            chapters_file="${base_name}_youtube_chapters.txt"
-            description_file="${base_name}_youtube_description.txt"
+            chapters_file="$OUTPUT_MOVIE_DIR/${BASE_NAME}_youtube_chapters.txt"
+            description_file="$OUTPUT_MOVIE_DIR/${BASE_NAME}_youtube_description.txt"
             
             if [ -f "$chapters_file" ]; then
                 echo ""
@@ -191,8 +229,9 @@ if [ $? -eq 0 ]; then
     
     echo ""
     print_success "すべて完了！"
-    echo "📂 動画ファイル: output/内の最新の.mp4ファイル"
-    echo "📋 YouTube用ファイル: *_youtube_*.txt"
+    echo "📂 出力ディレクトリ: $OUTPUT_MOVIE_DIR"
+    echo "📄 ベースファイル名: $BASE_NAME"
+    echo "📋 YouTube用ファイル: ${BASE_NAME}_youtube_*.txt"
     
 else
     print_error "動画生成に失敗しました"
