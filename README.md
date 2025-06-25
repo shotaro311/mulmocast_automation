@@ -12,15 +12,19 @@ python3 tools/setup_fixed_images.py
 
 ### 2. 毎日の動画生成
 ```bash
-# 台本テキストを指定してワンライナー実行
+# 朝用ニュース動画生成
 ./quick_news_video.sh "台本テキスト"
+
+# 夜用ニュース動画生成（夜の挨拶文を使用）
+./quick_evening_news_video.sh "台本テキスト"
 ```
 
 ## 📁 ディレクトリ構造
 
 ```
 mulmocast/
-├── quick_news_video.sh          # メイン実行スクリプト
+├── quick_news_video.sh          # 朝用ニュース動画生成スクリプト
+├── quick_evening_news_video.sh  # 夜用ニュース動画生成スクリプト
 ├── .env                         # API設定
 ├── README.md                    # このファイル
 ├── tools/                       # 各種ツール
@@ -49,6 +53,7 @@ mulmocast/
 - beats数を7-11範囲に自動調整
 - 内容に応じた画像プロンプト自動生成
 - 日本語音声・字幕付き動画出力
+- **時間帯別対応**: 朝用・夜用の挨拶文切り替え
 
 ### 💰 **Token節約機能**
 - オープニング・クロージング用固定画像を再利用

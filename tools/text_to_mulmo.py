@@ -36,11 +36,15 @@ def load_fixed_images_config():
     
     return None
 
-def text_to_mulmo_script(text, output_file=None):
+def text_to_mulmo_script(text, output_file=None, time_period="morning"):
     """台本テキストをmulmocastスクリプト形式に変換"""
     
-    # 固定の挨拶文
-    OPENING_GREETING = "おはようございます。この動画では、忙しい朝にサクッと聞ける重要な投資・経済ニュースを1～2分でお届けします。毎日の習慣で投資知識と判断力を高めていきましょう。ぜひチャンネル登録・高評価、よろしくお願いします。"
+    # 固定の挨拶文（時間帯別）
+    if time_period == "evening":
+        OPENING_GREETING = "お疲れ様です。今日一日の重要な投資・経済ニュースを振り返り、明日の投資判断に役立つポイントを1～2分でお届けします。忙しい一日の終わりに、サクッと投資情報をチェックしていきましょう。ぜひチャンネル登録・高評価、よろしくお願いします。"
+    else:  # デフォルトは朝用
+        OPENING_GREETING = "おはようございます。この動画では、忙しい朝にサクッと聞ける重要な投資・経済ニュースを1～2分でお届けします。毎日の習慣で投資知識と判断力を高めていきましょう。ぜひチャンネル登録・高評価、よろしくお願いします。"
+    
     CLOSING_GREETING = "このチャンネルでは毎日重要ニュースをピックアップしてお届けしています。よろしければチャンネル登録と高評価をお願いいたします。"
     
     # 固定画像設定を読み込み
@@ -227,13 +231,20 @@ def text_to_mulmo_script(text, output_file=None):
 
 def main():
     if len(sys.argv) < 2:
-        print("使用方法: python text_to_mulmo.py '台本テキスト' [output_file.json]")
+        print("使用方法: python text_to_mulmo.py '台本テキスト' [output_file.json] [time_period]")
+        print("time_period: 'morning'(朝用・デフォルト) または 'evening'(夜用)")
         sys.exit(1)
     
     text = sys.argv[1]
     output_file = sys.argv[2] if len(sys.argv) > 2 else None
+    time_period = sys.argv[3] if len(sys.argv) > 3 else "morning"
     
-    result_file = text_to_mulmo_script(text, output_file)
+    # time_periodの値をチェック
+    if time_period not in ["morning", "evening"]:
+        print(f"⚠️  警告: 不正な時間帯指定 '{time_period}'。'morning'を使用します。")
+        time_period = "morning"
+    
+    result_file = text_to_mulmo_script(text, output_file, time_period)
     print(f"🎬 次のコマンドで動画を生成できます:")
     print(f"cd ~/mulmocast && export PATH='/opt/homebrew/bin:$PATH' && mulmo movie {result_file} -l ja -c ja")
 
