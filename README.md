@@ -25,11 +25,12 @@ python3 tools/setup_fixed_images.py
 mulmocast/
 ├── quick_news_video.sh          # 朝用ニュース動画生成スクリプト
 ├── quick_evening_news_video.sh  # 夜用ニュース動画生成スクリプト
+├── shared_functions.sh          # 共通関数ライブラリ
 ├── .env                         # API設定
 ├── README.md                    # このファイル
 ├── tools/                       # 各種ツール
-│   ├── text_to_mulmo.py        # 台本→JSON変換
-│   ├── youtube_chapters.py     # YouTube目次生成
+│   ├── text_to_mulmo.py        # 台本→JSON変換（リファクタリング済み）
+│   ├── youtube_chapters.py     # YouTube目次生成（リファクタリング済み）
 │   └── setup_fixed_images.py   # 固定画像セットアップ
 ├── config/                      # 設定ファイル
 │   └── fixed_images_config.json # 固定画像設定
@@ -113,6 +114,20 @@ output/movie/evening_news_20250621_214530/evening_news_20250621_214530_youtube_c
 - **品質向上**: beats数自動調整で安定品質
 - **YouTube対応**: 目次自動生成でUX向上
 - **ファイル管理**: 時刻ベース命名で上書き防止・複数動画対応
+
+## 🔧 コード品質・保守性
+
+### リファクタリング実施済み
+- **モジュール化**: 長い関数を小さな責務明確な関数に分割
+- **定数管理**: ハードコードされた値を定数として定義
+- **共通化**: 重複コードを共通関数として抽出
+- **可読性向上**: 意味のある関数名・変数名に変更
+- **保守性向上**: 変更影響範囲を最小化
+
+### コード構造
+- `shared_functions.sh`: シェルスクリプト共通関数ライブラリ
+- `tools/text_to_mulmo.py`: 台本変換エンジン（モジュール化済み）
+- `tools/youtube_chapters.py`: 目次生成エンジン（辞書ベース設計）
 
 ## 🔧 トラブルシューティング
 

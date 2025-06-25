@@ -9,15 +9,102 @@ import sys
 import os
 from datetime import datetime
 
+# 定数定義
+DEFAULT_BEAT_DURATION = 17.0
+MIN_SUMMARY_LENGTH = 100
+MAX_SUMMARY_LENGTH = 120
+FIXED_HASHTAGS = "#投資ニュース #経済ニュース #資産運用 #AI"
+CHANNEL_URL = "https://www.youtube.com/@money_news_3min"
+
+# チャプター名生成用キーワード辞書
+CHAPTER_KEYWORDS = {
+    '新NISA': {
+        'patterns': ['新NISA', 'つみたて枠', '成長投資枠', '非課税', '制度2年目'],
+        'specific': {
+            ('88％', '56％'): "💼 新NISA利用状況（88％が活用）",
+            ('平均積立額', '73万', '160万'): "📊 新NISA積立額の増加トレンド",
+            ('自動積立', 'ボーナス月'): "⚡ 非課税枠完全活用の戦略"
+        },
+        'default': "💼 新NISA制度の活用状況"
+    },
+    '日銀': {
+        'patterns': ['日銀', '議事要旨', '政策委員', '基調インフレ', '段階的利上げ'],
+        'specific': {
+            ('基調インフレ', '2％'): "💹 日銀議事要旨（段階的利上げ方針）",
+            ('年内利上げ', '7割織り込'): "📈 市場の利上げ織り込み状況"
+        },
+        'default': "💹 日銀政策・金利動向"
+    },
+    '住宅ローン': {
+        'patterns': ['住宅ローン', 'REIT', '固定化', '生活防衛費', '返済負担増'],
+        'default': "🏠 住宅ローン対策（固定化検討）"
+    },
+    '為替': {
+        'patterns': ['為替', '円高', '円安', '輸出株', 'ボラティリティ'],
+        'default': "💱 為替動向（円高進行の影響）"
+    },
+    'Microsoft': {
+        'patterns': ['GAFAM', 'マイクロソフト', 'Azure AI', 'Copilot+PC'],
+        'default': "🤖 Microsoft AI戦略（営業利益率最高）"
+    },
+    'Google': {
+        'patterns': ['Google', 'Gemini', '広告検索'],
+        'default': "🔍 Google Gemini戦略"
+    },
+    'Apple': {
+        'patterns': ['Apple', 'トランプ関税', 'インド生産', '9億ドル'],
+        'default': "🍎 Apple関税対策（インド生産転換）"
+    },
+    'AI戦略': {
+        'patterns': ['AI競争力', '関税リスク', 'セクター分散'],
+        'default': "💼 米国株投資戦略（AI vs 関税リスク）"
+    },
+    '地政学': {
+        'patterns': ['中東', 'イスラエル', 'イラン', '原油'],
+        'default': "🛢️ 地政学リスクと原油"
+    },
+    'リスク管理': {
+        'patterns': ['エネルギー', '地政学', 'リスク', '分散'],
+        'default': "⚖️ リスク管理のポイント"
+    },
+    '経済指標': {
+        'patterns': ['CPI', 'インフレ', '総務省'],
+        'default': "📊 経済指標の解説"
+    },
+    '投資戦略': {
+        'patterns': ['リバランス', '利益確定', 'インデックス'],
+        'default': "💼 投資戦略のアドバイス"
+    },
+    'まとめ': {
+        'patterns': ['ポイント', '整理', '①', '②', '③', 'まとめ'],
+        'default': "📝 重要ポイントまとめ"
+    },
+    '株式市場': {
+        'patterns': ['株', '株式', '日経', 'ダウ', 'NASDAQ'],
+        'default': "📈 株式市場の動向"
+    }
+}
+
+# ハッシュタグ生成用キーワード
+HASHTAG_KEYWORDS = {
+    '#新NISA': ['新NISA', 'つみたて枠', '成長投資枠'],
+    '#日銀': ['日銀', '議事要旨', '利上げ', '金利政策'],
+    '#米国株': ['マイクロソフト', 'Google', 'Apple', 'GAFAM'],
+    '#為替': ['為替', '円高', '円安', 'ドル円'],
+    '#住宅ローン': ['住宅ローン', 'REIT', '不動産'],
+    '#地政学リスク': ['中東', 'イスラエル', 'イラン', '地政学'],
+    '#金利': ['金利', '利上げ', '利下げ', '政策金利'],
+    '#インデックス投資': ['インデックス', 'S&P500', 'オルカン', 'リバランス']
+}
+
 def seconds_to_timestamp(seconds):
     """秒をYouTube用タイムスタンプ（MM:SS）に変換"""
     minutes = int(seconds // 60)
     secs = int(seconds % 60)
     return f"{minutes}:{secs:02d}"
 
-def generate_youtube_chapters(studio_file):
-    """studio.jsonからYouTube用チャプターを生成"""
-    
+def load_studio_data(studio_file):
+    """studio.jsonファイルを読み込んでデータを検証"""
     if not os.path.exists(studio_file):
         print(f"❌ ファイルが見つかりません: {studio_file}")
         return None
@@ -29,32 +116,74 @@ def generate_youtube_chapters(studio_file):
         print(f"❌ ファイル読み込みエラー: {e}")
         return None
     
-    chapters = []
-    current_time = 0.0
-    used_chapter_names = set()  # 重複チェック用
-    
-    # studio.jsonから実際のbeat時間データを取得
-    # 実際のbeat時間情報は'beats'キーに格納されている
-    if 'beats' in data:
-        beats_data = data['beats']
-        # script情報も取得
-        if 'script' in data and 'beats' in data['script']:
-            script_beats = data['script']['beats']
-        else:
-            print("❌ script beats情報が見つかりません")
-            return None
-    else:
+    # データ構造の検証
+    if 'beats' not in data:
         print("❌ beats時間情報が見つかりません")
         return None
     
-    # beat数の一致確認
+    if 'script' not in data or 'beats' not in data['script']:
+        print("❌ script beats情報が見つかりません")
+        return None
+    
+    beats_data = data['beats']
+    script_beats = data['script']['beats']
+    
     if len(beats_data) != len(script_beats):
         print(f"⚠️  警告: beat数が一致しません (時間データ: {len(beats_data)}, テキストデータ: {len(script_beats)})")
         return None
     
+    return data
+
+def find_matching_chapter_category(text):
+    """テキストから最適なチャプターカテゴリを見つける"""
+    for category, config in CHAPTER_KEYWORDS.items():
+        if any(word in text for word in config['patterns']):
+            # 特定パターンのチェック
+            if 'specific' in config:
+                for specific_patterns, chapter_name in config['specific'].items():
+                    if any(pattern in text for pattern in specific_patterns):
+                        return chapter_name
+            return config['default']
+    return None
+
+def generate_smart_chapter_name(text, index):
+    """実際のテキスト内容からより具体的なチャプター名を生成"""
+    chapter_name = find_matching_chapter_category(text)
+    
+    if chapter_name:
+        return chapter_name
+    
+    # どのカテゴリにも当てはまらない場合
+    keywords = extract_keywords(text)
+    if keywords:
+        return f"📰 {keywords[0]}について"
+    else:
+        return f"📰 ニュース解説 {index}"
+
+def extract_keywords(text):
+    """テキストから重要なキーワードを抽出"""
+    important_words = [
+        '新NISA', 'つみたて', '成長投資枠', '日銀', '利上げ', '金利', 
+        'マイクロソフト', 'Google', 'Apple', 'AI', '為替', '円高', '円安',
+        '住宅ローン', 'REIT', '関税', 'トランプ', 'インド生産',
+        'セクター分散', 'インデックス', 'リバランス'
+    ]
+    
+    found_keywords = []
+    for word in important_words:
+        if word in text:
+            found_keywords.append(word)
+    
+    return found_keywords[:2]
+
+def generate_chapters_from_beats(beats_data, script_beats):
+    """beatsデータからチャプターリストを生成"""
+    chapters = []
+    current_time = 0.0
+    used_chapter_names = set()
+    
     for i, (beat_time, beat_text) in enumerate(zip(beats_data, script_beats)):
-        # 実際の音声時間を取得（デフォルト17秒）
-        duration = beat_time.get('duration', 17.0)
+        duration = beat_time.get('duration', DEFAULT_BEAT_DURATION)
         
         # OP（最初）・ED（最後）のチャプターをスキップ
         if i == 0 or i == len(script_beats) - 1:
@@ -67,7 +196,6 @@ def generate_youtube_chapters(studio_file):
         
         # 重複チャプター名をチェック・統合
         if chapter_name in used_chapter_names:
-            # 重複の場合は時間を加算してスキップ（統合）
             current_time += duration
             continue
         
@@ -77,19 +205,18 @@ def generate_youtube_chapters(studio_file):
         timestamp = seconds_to_timestamp(current_time)
         chapters.append(f"{timestamp} {chapter_name}")
         
-        # 実際の音声時間を加算
         current_time += duration
     
-    # 総動画時間（全beatの時間を含む）
-    total_duration = sum(beat.get('duration', 17.0) for beat in beats_data)
-    
-    # デバッグ情報を出力
+    return chapters
+
+def print_chapter_debug_info(beats_data, script_beats, chapters):
+    """チャプター時間計算のデバッグ情報を出力"""
     print(f"🕐 チャプター時間計算:")
     current_debug_time = 0.0
     chapter_index = 0
     
     for i, (beat_time, beat_text) in enumerate(zip(beats_data, script_beats)):
-        duration = beat_time.get('duration', 17.0)
+        duration = beat_time.get('duration', DEFAULT_BEAT_DURATION)
         
         if i == 0:
             print(f"  Beat {i+1}: {duration:.2f}秒 - [OP] スキップ")
@@ -109,135 +236,79 @@ def generate_youtube_chapters(studio_file):
                 print(f"  Beat {i+1}: {duration:.2f}秒 - [重複] {chapter_name} 統合")
         
         current_debug_time += duration
+
+def generate_youtube_chapters(studio_file):
+    """studio.jsonからYouTube用チャプターを生成"""
+    data = load_studio_data(studio_file)
+    if data is None:
+        return None
+    
+    beats_data = data['beats']
+    script_beats = data['script']['beats']
+    
+    # チャプター生成
+    chapters = generate_chapters_from_beats(beats_data, script_beats)
+    
+    # 総動画時間計算
+    total_duration = sum(beat.get('duration', DEFAULT_BEAT_DURATION) for beat in beats_data)
+    
+    # デバッグ情報出力
+    print_chapter_debug_info(beats_data, script_beats, chapters)
     
     return chapters, total_duration
 
-def generate_smart_chapter_name(text, index):
-    """実際のテキスト内容からより具体的なチャプター名を生成"""
+def extract_all_text_from_beats(studio_data):
+    """スタジオデータから全テキストを抽出"""
+    if 'script' in studio_data and 'beats' in studio_data['script']:
+        beats = studio_data['script']['beats']
+        return ' '.join([beat.get('text', '') for beat in beats])
+    return ""
+
+def generate_topic_list(all_text):
+    """テキストから主要トピックリストを生成"""
+    topics = []
     
     # 新NISA関連
-    if any(word in text for word in ['新NISA', 'つみたて枠', '成長投資枠', '非課税', '制度2年目']):
-        if '88％' in text or '56％' in text:
-            return "💼 新NISA利用状況（88％が活用）"
-        elif '平均積立額' in text or '73万' in text or '160万' in text:
-            return "📊 新NISA積立額の増加トレンド"
-        elif '自動積立' in text or 'ボーナス月' in text:
-            return "⚡ 非課税枠完全活用の戦略"
+    if any(word in all_text for word in ['新NISA', 'つみたて枠', '成長投資枠']):
+        if '88％' in all_text or '利用状況' in all_text:
+            topics.append('新NISA利用状況88％')
+        elif '平均積立額' in all_text or '73万' in all_text:
+            topics.append('新NISA積立額増加')
         else:
-            return "💼 新NISA制度の活用状況"
+            topics.append('新NISA活用法')
     
     # 日銀・金利関連
-    elif any(word in text for word in ['日銀', '議事要旨', '政策委員', '基調インフレ', '段階的利上げ']):
-        if '基調インフレ' in text and '2％' in text:
-            return "💹 日銀議事要旨（段階的利上げ方針）"
-        elif '年内利上げ' in text or '7割織り込' in text:
-            return "📈 市場の利上げ織り込み状況"
-        else:
-            return "💹 日銀政策・金利動向"
+    if any(word in all_text for word in ['日銀', '議事要旨', '利上げ', '金利']):
+        topics.append('日銀段階的利上げ')
     
-    # 住宅ローン・REIT関連
-    elif any(word in text for word in ['住宅ローン', 'REIT', '固定化', '生活防衛費', '返済負担増']):
-        return "🏠 住宅ローン対策（固定化検討）"
+    # 米国株・AI関連
+    if any(word in all_text for word in ['マイクロソフト', 'Azure', 'Copilot']):
+        topics.append('Microsoft AI戦略')
+    elif any(word in all_text for word in ['Google', 'Gemini']):
+        topics.append('Google AI戦略')
+    elif any(word in all_text for word in ['Apple', 'トランプ関税', 'インド生産']):
+        topics.append('Apple関税対策')
+    elif any(word in all_text for word in ['GAFAM', 'AI競争']):
+        topics.append('米国株AI戦略')
     
-    # 為替関連
-    elif any(word in text for word in ['為替', '円高', '円安', '輸出株', 'ボラティリティ']):
-        return "💱 為替動向（円高進行の影響）"
+    # その他のトピック
+    if any(word in all_text for word in ['為替', '円高', '円安']):
+        topics.append('為替動向')
+    if any(word in all_text for word in ['住宅ローン', 'REIT', '固定化']):
+        topics.append('住宅ローン対策')
+    if any(word in all_text for word in ['中東', 'イスラエル', 'イラン', '地政学']):
+        topics.append('地政学リスク')
     
-    # GAFAM・AI関連
-    elif any(word in text for word in ['GAFAM', 'マイクロソフト', 'Azure AI', 'Copilot+PC']):
-        return "🤖 Microsoft AI戦略（営業利益率最高）"
-    elif any(word in text for word in ['Google', 'Gemini', '広告検索']):
-        return "🔍 Google Gemini戦略"
-    elif any(word in text for word in ['Apple', 'トランプ関税', 'インド生産', '9億ドル']):
-        return "🍎 Apple関税対策（インド生産転換）"
-    elif any(word in text for word in ['AI競争力', '関税リスク', 'セクター分散']):
-        return "💼 米国株投資戦略（AI vs 関税リスク）"
-    
-    # その他のキーワード
-    elif any(word in text for word in ['中東', 'イスラエル', 'イラン', '原油']):
-        return "🛢️ 地政学リスクと原油"
-    elif any(word in text for word in ['エネルギー', '地政学', 'リスク', '分散']):
-        return "⚖️ リスク管理のポイント"
-    elif any(word in text for word in ['CPI', 'インフレ', '総務省']):
-        return "📊 経済指標の解説"
-    elif any(word in text for word in ['リバランス', '利益確定', 'インデックス']):
-        return "💼 投資戦略のアドバイス"
-    elif any(word in text for word in ['ポイント', '整理', '①', '②', '③', 'まとめ']):
-        return "📝 重要ポイントまとめ"
-    elif any(word in text for word in ['株', '株式', '日経', 'ダウ', 'NASDAQ']):
-        return "📈 株式市場の動向"
-    else:
-        # テキストの最初の重要単語を抽出
-        keywords = extract_keywords(text)
-        if keywords:
-            return f"📰 {keywords[0]}について"
-        else:
-            return f"📰 ニュース解説 {index}"
-
-def extract_keywords(text):
-    """テキストから重要なキーワードを抽出"""
-    # 重要な単語を優先順位順に並べる
-    important_words = [
-        '新NISA', 'つみたて', '成長投資枠', '日銀', '利上げ', '金利', 
-        'マイクロソフト', 'Google', 'Apple', 'AI', '為替', '円高', '円安',
-        '住宅ローン', 'REIT', '関税', 'トランプ', 'インド生産',
-        'セクター分散', 'インデックス', 'リバランス'
-    ]
-    
-    found_keywords = []
-    for word in important_words:
-        if word in text:
-            found_keywords.append(word)
-    
-    return found_keywords[:2]  # 最大2つまで
+    return topics
 
 def generate_video_summary(studio_data):
     """スタジオデータから100-120文字の動画要約を生成"""
     try:
-        # script beats から全テキストを取得
-        if 'script' in studio_data and 'beats' in studio_data['script']:
-            beats = studio_data['script']['beats']
-            all_text = ' '.join([beat.get('text', '') for beat in beats])
-        else:
+        all_text = extract_all_text_from_beats(studio_data)
+        if not all_text:
             return "今日の重要な投資・経済ニュースを3分で解説。新NISA、日銀政策、米国株、為替動向など投資判断に必要な情報をお届けします。"
         
-        # 主要なトピックを抽出
-        topics = []
-        
-        # 新NISA関連
-        if any(word in all_text for word in ['新NISA', 'つみたて枠', '成長投資枠']):
-            if '88％' in all_text or '利用状況' in all_text:
-                topics.append('新NISA利用状況88％')
-            elif '平均積立額' in all_text or '73万' in all_text:
-                topics.append('新NISA積立額増加')
-            else:
-                topics.append('新NISA活用法')
-        
-        # 日銀・金利関連
-        if any(word in all_text for word in ['日銀', '議事要旨', '利上げ', '金利']):
-            topics.append('日銀段階的利上げ')
-        
-        # 米国株・AI関連
-        if any(word in all_text for word in ['マイクロソフト', 'Azure', 'Copilot']):
-            topics.append('Microsoft AI戦略')
-        elif any(word in all_text for word in ['Google', 'Gemini']):
-            topics.append('Google AI戦略')
-        elif any(word in all_text for word in ['Apple', 'トランプ関税', 'インド生産']):
-            topics.append('Apple関税対策')
-        elif any(word in all_text for word in ['GAFAM', 'AI競争']):
-            topics.append('米国株AI戦略')
-        
-        # 為替関連
-        if any(word in all_text for word in ['為替', '円高', '円安']):
-            topics.append('為替動向')
-        
-        # 住宅・REIT関連
-        if any(word in all_text for word in ['住宅ローン', 'REIT', '固定化']):
-            topics.append('住宅ローン対策')
-        
-        # 地政学リスク
-        if any(word in all_text for word in ['中東', 'イスラエル', 'イラン', '地政学']):
-            topics.append('地政学リスク')
+        topics = generate_topic_list(all_text)
         
         # 要約文を生成
         if topics:
@@ -246,10 +317,10 @@ def generate_video_summary(studio_data):
         else:
             summary = "今日の重要な投資・経済ニュースを3分で解説。最新の市場動向と投資判断に必要な情報をお届けします。"
         
-        # 文字数調整（100-120文字）
-        if len(summary) > 120:
+        # 文字数調整
+        if len(summary) > MAX_SUMMARY_LENGTH:
             summary = summary[:117] + "..."
-        elif len(summary) < 100:
+        elif len(summary) < MIN_SUMMARY_LENGTH:
             summary += "毎朝の投資情報収集にお役立てください。"
         
         return summary
@@ -260,49 +331,18 @@ def generate_video_summary(studio_data):
 def generate_dynamic_hashtags(studio_data):
     """ニュース内容から動的にハッシュタグを2つ生成"""
     try:
-        # script beats から全テキストを取得
-        if 'script' in studio_data and 'beats' in studio_data['script']:
-            beats = studio_data['script']['beats']
-            all_text = ' '.join([beat.get('text', '') for beat in beats])
-        else:
-            return "#新NISA #日銀"
+        all_text = extract_all_text_from_beats(studio_data)
+        if not all_text:
+            return " #新NISA #日銀"
         
         hashtags = []
         
-        # 新NISA関連
-        if any(word in all_text for word in ['新NISA', 'つみたて枠', '成長投資枠']):
-            hashtags.append('#新NISA')
-        
-        # 日銀・金利関連
-        if any(word in all_text for word in ['日銀', '議事要旨', '利上げ', '金利政策']):
-            hashtags.append('#日銀')
-        
-        # 米国株関連
-        if any(word in all_text for word in ['マイクロソフト', 'Google', 'Apple', 'GAFAM']):
-            hashtags.append('#米国株')
-        
-        # 為替関連
-        if any(word in all_text for word in ['為替', '円高', '円安', 'ドル円']):
-            hashtags.append('#為替')
-        
-        # 住宅ローン関連
-        if any(word in all_text for word in ['住宅ローン', 'REIT', '不動産']):
-            hashtags.append('#住宅ローン')
-        
-        # 地政学リスク
-        if any(word in all_text for word in ['中東', 'イスラエル', 'イラン', '地政学']):
-            hashtags.append('#地政学リスク')
-        
-        # 金利関連
-        if any(word in all_text for word in ['金利', '利上げ', '利下げ', '政策金利']):
-            hashtags.append('#金利')
-        
-        # インデックス投資関連
-        if any(word in all_text for word in ['インデックス', 'S&P500', 'オルカン', 'リバランス']):
-            hashtags.append('#インデックス投資')
+        for hashtag, keywords in HASHTAG_KEYWORDS.items():
+            if any(word in all_text for word in keywords):
+                hashtags.append(hashtag)
         
         # 2つ選択（重複排除）
-        unique_hashtags = list(dict.fromkeys(hashtags))  # 順序を保持して重複排除
+        unique_hashtags = list(dict.fromkeys(hashtags))
         selected_hashtags = unique_hashtags[:2]
         
         # 2つに満たない場合はデフォルトで補完
@@ -317,15 +357,11 @@ def generate_dynamic_hashtags(studio_data):
         return ' ' + ' '.join(selected_hashtags)
         
     except Exception as e:
-        return "#新NISA #日銀"
+        return " #新NISA #日銀"
 
 def create_youtube_description(chapters, video_title, studio_data):
     """YouTube用の説明文を生成"""
-    
-    # 100-120文字の要約を生成
     summary = generate_video_summary(studio_data)
-    
-    # ニュース内容から動的ハッシュタグを生成
     dynamic_hashtags = generate_dynamic_hashtags(studio_data)
     
     description = f"""📺 {summary}
@@ -336,7 +372,7 @@ def create_youtube_description(chapters, video_title, studio_data):
     for chapter in chapters:
         description += f"{chapter}\n"
     
-    description += """
+    description += f"""
 ━━━━━━━━━━━━━━━━━━━━━━━━
 
 💡 このチャンネルについて
@@ -344,12 +380,23 @@ def create_youtube_description(chapters, video_title, studio_data):
 投資知識と判断力を日々の習慣で高めていきましょう！
 
 🔔 チャンネル登録・高評価をお願いします！
-📌 https://www.youtube.com/@money_news_3min
+📌 {CHANNEL_URL}
 
-#投資ニュース #経済ニュース #資産運用 #AI """ + dynamic_hashtags + """
+{FIXED_HASHTAGS}{dynamic_hashtags}
 """
     
     return description
+
+def find_latest_studio_file():
+    """最新のstudio.jsonファイルを自動検索"""
+    if os.path.exists("output"):
+        studio_files = [f for f in os.listdir("output") if f.endswith('_studio.json')]
+        if studio_files:
+            studio_files.sort(reverse=True)
+            studio_file = os.path.join("output", studio_files[0])
+            print(f"📁 最新のstudio.jsonを使用: {studio_file}")
+            return studio_file
+    return None
 
 def main():
     if len(sys.argv) < 2:
@@ -359,32 +406,20 @@ def main():
     studio_file = sys.argv[1]
     
     # 出力ディレクトリとベース名を引数から取得
-    if len(sys.argv) >= 3:
-        output_dir = sys.argv[2]
-    else:
-        output_dir = "output/movie"
+    output_dir = sys.argv[2] if len(sys.argv) >= 3 else "output/movie"
     
     if len(sys.argv) >= 4:
         base_name = sys.argv[3]
     else:
-        # studio.jsonファイル名からベース名を推測
         base_name = os.path.splitext(os.path.basename(studio_file))[0].replace('_studio', '')
     
     # studio.jsonファイルが見つからない場合、最新のものを自動検索
     if not os.path.exists(studio_file):
-        # output/ディレクトリから最新のstudio.jsonを検索
-        if os.path.exists("output"):
-            studio_files = [f for f in os.listdir("output") if f.endswith('_studio.json')]
-            if studio_files:
-                # 最新のファイルを選択
-                studio_files.sort(reverse=True)
-                studio_file = os.path.join("output", studio_files[0])
-                print(f"📁 最新のstudio.jsonを使用: {studio_file}")
-            else:
-                print("❌ studio.jsonファイルが見つかりません")
-                sys.exit(1)
+        found_file = find_latest_studio_file()
+        if found_file:
+            studio_file = found_file
         else:
-            print("❌ outputディレクトリが見つかりません")
+            print("❌ studio.jsonファイルが見つかりません")
             sys.exit(1)
     
     # 出力ディレクトリを作成
@@ -413,7 +448,7 @@ def main():
         video_title = '投資・経済ニュース - 朝の重要ポイント'
         studio_data = {}
     
-    # 出力ファイル名を生成（新しい命名規則）
+    # 出力ファイル名を生成
     chapters_file = os.path.join(output_dir, f"{base_name}_youtube_chapters.txt")
     description_file = os.path.join(output_dir, f"{base_name}_youtube_description.txt")
     
