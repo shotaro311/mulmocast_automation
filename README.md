@@ -35,12 +35,15 @@ mulmocast/
 │   └── fixed_images_config.json # 固定画像設定
 ├── output/                      # 生成結果
 │   └── movie/                  # 整理された出力ファイル
-│       └── news_YYYYMMDD/      # 日付別フォルダ
-│           ├── news_YYYYMMDD.mp4              # 動画ファイル
-│           ├── news_YYYYMMDD_studio.json      # mulmocast内部ファイル
-│           ├── news_YYYYMMDD_youtube_chapters.txt    # チャプター一覧
-│           ├── news_YYYYMMDD_youtube_description.txt # YouTube説明文
-│           └── news_YYYYMMDD.mp3              # 音声ファイル
+│       ├── news_YYYYMMDD_HHMMSS/      # 朝用動画フォルダ（時刻別）
+│       │   ├── news_YYYYMMDD_HHMMSS.mp4              # 動画ファイル
+│       │   ├── news_YYYYMMDD_HHMMSS_studio.json      # mulmocast内部ファイル
+│       │   ├── news_YYYYMMDD_HHMMSS_youtube_chapters.txt    # チャプター一覧
+│       │   ├── news_YYYYMMDD_HHMMSS_youtube_description.txt # YouTube説明文
+│       │   └── news_YYYYMMDD_HHMMSS.mp3              # 音声ファイル
+│       └── evening_news_YYYYMMDD_HHMMSS/  # 夜用動画フォルダ（時刻別）
+│           ├── evening_news_YYYYMMDD_HHMMSS.mp4      # 動画ファイル
+│           └── （同様のファイル構成）
 │   └── images/                 # 生成画像（共有）
 └── docs/                       # ドキュメント
     └── mulmo_manual.md         # mulmocastマニュアル
@@ -68,17 +71,23 @@ mulmocast/
 - 重複チャプター名の自動統合
 
 ### 📁 **整理された出力管理**
-- 日付ベースファイル命名（`news_YYYYMMDD`）
+- **時刻ベースファイル命名**（`news_YYYYMMDD_HHMMSS`）で上書き防止
 - `output/movie/`ディレクトリに集約
 - 動画・音声・チャプター・説明文を一括管理
+- **同日複数動画対応**: 各動画が独立したフォルダに保存
 
 ## 📊 生成例
 
 ### 出力ファイル構成
 ```
-output/movie/news_20250621/news_20250621.mp4              # 動画ファイル
-output/movie/news_20250621/news_20250621_youtube_chapters.txt     # チャプター一覧
-output/movie/news_20250621/news_20250621_youtube_description.txt  # YouTube説明文
+# 朝用動画（例：2025年6月21日 08:30:15 生成）
+output/movie/news_20250621_083015/news_20250621_083015.mp4              # 動画ファイル
+output/movie/news_20250621_083015/news_20250621_083015_youtube_chapters.txt     # チャプター一覧
+output/movie/news_20250621_083015/news_20250621_083015_youtube_description.txt  # YouTube説明文
+
+# 夜用動画（例：2025年6月21日 21:45:30 生成）
+output/movie/evening_news_20250621_214530/evening_news_20250621_214530.mp4      # 動画ファイル
+output/movie/evening_news_20250621_214530/evening_news_20250621_214530_youtube_chapters.txt  # チャプター一覧
 ```
 
 ### 動画チャプター（OP/ED除外）
@@ -103,7 +112,7 @@ output/movie/news_20250621/news_20250621_youtube_description.txt  # YouTube説�
 - **Token節約**: 固定画像2枚再利用
 - **品質向上**: beats数自動調整で安定品質
 - **YouTube対応**: 目次自動生成でUX向上
-- **ファイル管理**: 日付ベース命名で整理
+- **ファイル管理**: 時刻ベース命名で上書き防止・複数動画対応
 
 ## 🔧 トラブルシューティング
 
@@ -117,8 +126,9 @@ output/movie/news_20250621/news_20250621_youtube_description.txt  # YouTube説�
 # 固定画像設定の確認
 python3 tools/setup_fixed_images.py check
 
-# 生成ファイルの確認
-ls -la output/movie/news_$(date +%Y%m%d)/
+# 生成ファイルの確認（最新のフォルダ）
+ls -la output/movie/news_*/
+ls -la output/movie/evening_news_*/
 ```
 
 ---

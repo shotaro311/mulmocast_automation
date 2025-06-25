@@ -32,9 +32,9 @@ SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 
 # 出力ディレクトリを準備
 OUTPUT_BASE_DIR="output/movie"
-# 日付ベースのファイル名を生成
-DATE_STR=$(date +%Y%m%d)
-BASE_NAME="news_${DATE_STR}"
+# 日付+時刻ベースのユニークなファイル名を生成
+DATETIME_STR=$(date +%Y%m%d_%H%M%S)
+BASE_NAME="news_${DATETIME_STR}"
 OUTPUT_MOVIE_DIR="$OUTPUT_BASE_DIR/$BASE_NAME"
 mkdir -p "$OUTPUT_MOVIE_DIR"
 
